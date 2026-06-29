@@ -16,17 +16,16 @@ WEBMAP_HTML = r"""<!doctype html>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>GW Graffiti Jobs Map</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
   <style>
     html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; color: #17212b; }
-    #app { display: grid; grid-template-columns: 360px 1fr; height: 100%; }
+    #app { display: grid; grid-template-columns: 340px 1fr; height: 100%; }
     #sidebar { overflow: auto; border-right: 1px solid #d9e2ec; background: #f8fafc; padding: 16px; }
     #map { height: 100%; width: 100%; }
     h1 { font-size: 20px; margin: 0 0 12px; }
     h2 { font-size: 13px; margin: 20px 0 8px; text-transform: uppercase; letter-spacing: .04em; color: #52606d; }
     label { display: flex; gap: 8px; align-items: center; margin: 7px 0; font-size: 14px; }
-    select, input[type="search"] { box-sizing: border-box; width: 100%; border: 1px solid #bcccdc; border-radius: 6px; padding: 8px; background: white; font-size: 14px; }
+    select, input[type="search"], input[type="date"] { box-sizing: border-box; width: 100%; border: 1px solid #bcccdc; border-radius: 6px; padding: 8px; background: white; font-size: 14px; }
+    .date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     button { border: 1px solid #9fb3c8; border-radius: 6px; background: white; padding: 8px 10px; cursor: pointer; }
     button:hover { background: #edf2f7; }
     .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
@@ -35,17 +34,42 @@ WEBMAP_HTML = r"""<!doctype html>
     .stat span { color: #52606d; font-size: 12px; }
     .legend-item { display: flex; align-items: center; gap: 8px; margin: 7px 0; font-size: 13px; }
     .swatch { width: 12px; height: 12px; border-radius: 999px; border: 1px solid rgba(0,0,0,.18); }
-    .popup { max-width: 320px; }
+    .popup { width: 360px; max-width: 88vw; }
     .popup h3 { margin: 0 0 6px; font-size: 17px; }
-    .popup img { display: block; width: 100%; max-height: 230px; object-fit: cover; border: 1px solid #d9e2ec; margin: 8px 0; }
+    .hero { display: grid; grid-template-columns: 34px 1fr 34px; align-items: center; gap: 6px; margin: 8px 0; }
+    .hero img { display: block; width: 100%; height: 230px; object-fit: cover; border: 1px solid #d9e2ec; cursor: zoom-in; background: #f1f5f9; }
+    .hero button { height: 44px; padding: 0; font-size: 22px; }
     .popup .meta { font-size: 13px; color: #52606d; margin-bottom: 8px; }
-    .popup p { margin: 8px 0; }
+    .popup p { margin: 8px 0; max-height: 110px; overflow: auto; }
     .popup a { display: inline-block; margin: 4px 8px 0 0; color: #0b63ce; }
+    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 8px 0; }
+    .metric { background: #f8fafc; border: 1px solid #d9e2ec; border-radius: 6px; padding: 6px; font-size: 12px; }
+    .metric strong { display: block; font-size: 15px; color: #17212b; }
+    details { margin-top: 8px; }
+    summary { cursor: pointer; color: #0b63ce; }
+    .all-data { max-height: 240px; overflow: auto; border: 1px solid #d9e2ec; margin-top: 6px; }
+    .all-data table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .all-data th, .all-data td { border-bottom: 1px solid #edf2f7; padding: 5px; text-align: left; vertical-align: top; }
+    .all-data th { width: 35%; color: #52606d; background: #f8fafc; position: sticky; top: 0; }
     .empty { color: #829ab1; font-size: 13px; }
+    #modal { position: fixed; inset: 0; display: none; grid-template-columns: 64px 1fr 64px; align-items: center; gap: 12px; padding: 24px; background: rgba(15, 23, 42, .88); z-index: 10000; }
+    #modal.open { display: grid; }
+    #modal img { max-width: 100%; max-height: 88vh; justify-self: center; box-shadow: 0 20px 60px rgba(0,0,0,.45); }
+    #modal button { background: rgba(255,255,255,.95); font-size: 28px; height: 56px; }
+    #closeModal { position: fixed; top: 16px; right: 16px; width: 44px; }
+    #modalCaption { position: fixed; left: 24px; bottom: 18px; color: white; font-size: 14px; }
+    #jobPanel { display: none; position: fixed; left: 0; right: 0; bottom: 0; max-height: 72vh; overflow: auto; background: white; border-top: 1px solid #bcccdc; box-shadow: 0 -14px 40px rgba(15,23,42,.28); z-index: 9999; padding: 14px; }
+    #jobPanel.open { display: block; }
+    .panel-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+    .panel-bar button { width: 38px; height: 34px; padding: 0; font-size: 22px; }
     @media (max-width: 820px) {
       #app { grid-template-columns: 1fr; grid-template-rows: 42vh 58vh; }
       #sidebar { order: 2; border-right: 0; border-top: 1px solid #d9e2ec; }
       #map { order: 1; }
+      #modal { grid-template-columns: 44px 1fr 44px; padding: 12px; }
+      .leaflet-popup { display: none; }
+      .popup { width: auto; max-width: none; }
+      .hero img { height: 210px; }
     }
   </style>
 </head>
@@ -59,61 +83,68 @@ WEBMAP_HTML = r"""<!doctype html>
       </div>
 
       <h2>Search</h2>
-      <input id="search" type="search" placeholder="Job ID, road, council, comment">
+      <input id="search" type="search" placeholder="Job ID, road, comment">
 
       <h2>Filters</h2>
       <label><input id="filterGwAccess" type="checkbox"> Can GW access only</label>
-      <label><input id="filterBeforeEofy" type="checkbox"> Before EOFY 2025 only</label>
+      <label><input id="filterAfterEofy" type="checkbox"> After EOFY 2025 only</label>
       <label><input id="filterHasImages" type="checkbox"> Has images only</label>
 
-      <h2>Priority</h2>
-      <select id="priorityFilter"><option value="">All priorities</option></select>
-
-      <h2>Council</h2>
-      <select id="councilFilter"><option value="">All councils</option></select>
-
-      <h2>Assigned To</h2>
-      <select id="assignedFilter"><option value="">All assignees</option></select>
-
-      <h2>Status</h2>
-      <select id="statusFilter"><option value="">All statuses</option></select>
+      <h2>Created Date</h2>
+      <div class="date-row">
+        <input id="dateFrom" type="date" aria-label="Created from">
+        <input id="dateTo" type="date" aria-label="Created to">
+      </div>
 
       <h2>Legend</h2>
-      <div class="legend-item"><span class="swatch" style="background:#d64545"></span>High priority</div>
-      <div class="legend-item"><span class="swatch" style="background:#f0b429"></span>Medium priority</div>
-      <div class="legend-item"><span class="swatch" style="background:#2f80ed"></span>Other priority</div>
-      <div class="legend-item"><span class="swatch" style="background:#2f855a"></span>Can GW access</div>
+      <div class="legend-item"><span class="swatch" style="background:#d64545"></span>Oldest jobs</div>
+      <div class="legend-item"><span class="swatch" style="background:#f0b429"></span>Middle aged jobs</div>
+      <div class="legend-item"><span class="swatch" style="background:#2f855a"></span>Newest jobs</div>
 
       <h2>Actions</h2>
       <button id="reset">Reset filters</button>
+      <button id="zoomVisible">Zoom to visible</button>
     </aside>
     <main id="map"></main>
   </div>
 
+  <div id="modal">
+    <button id="modalPrev" type="button">‹</button>
+    <img id="modalImage" alt="Expanded job photo">
+    <button id="modalNext" type="button">›</button>
+    <button id="closeModal" type="button">×</button>
+    <div id="modalCaption"></div>
+  </div>
+  <div id="jobPanel"></div>
+
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
   <script>
     const map = L.map('map', { preferCanvas: true });
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    const light = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      maxZoom: 20,
+      attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+    }).addTo(map);
+    const street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 20,
       attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
-
-    const cluster = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 42 });
-    map.addLayer(cluster);
+    });
+    L.control.layers({ Light: light, Streets: street }).addTo(map);
 
     let features = [];
     let markers = [];
+    let dateMin = null;
+    let dateMax = null;
+    let activeGallery = [];
+    let activeGalleryIndex = 0;
+    const markerLayer = L.layerGroup().addTo(map);
 
     const controls = {
       search: document.getElementById('search'),
       gw: document.getElementById('filterGwAccess'),
-      eofy: document.getElementById('filterBeforeEofy'),
+      eofy: document.getElementById('filterAfterEofy'),
       images: document.getElementById('filterHasImages'),
-      priority: document.getElementById('priorityFilter'),
-      council: document.getElementById('councilFilter'),
-      assigned: document.getElementById('assignedFilter'),
-      status: document.getElementById('statusFilter')
+      dateFrom: document.getElementById('dateFrom'),
+      dateTo: document.getElementById('dateTo')
     };
 
     function clean(value) {
@@ -124,29 +155,93 @@ WEBMAP_HTML = r"""<!doctype html>
       return clean(value).toUpperCase() === 'TRUE';
     }
 
+    function parseDate(value) {
+      const parts = clean(value).split('/');
+      if (parts.length !== 3) return null;
+      const [day, month, year] = parts.map(Number);
+      const date = new Date(year, month - 1, day);
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    function toInputDate(date) {
+      if (!date) return '';
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    }
+
+    function fromInputDate(value) {
+      return value ? new Date(`${value}T00:00:00`) : null;
+    }
+
     function colorFor(p) {
-      if (truthy(p['Can GW Access'])) return '#2f855a';
-      const priority = clean(p.priority).toLowerCase();
-      if (priority === 'high') return '#d64545';
-      if (priority === 'medium') return '#f0b429';
-      return '#2f80ed';
+      const date = parseDate(p.created_date);
+      if (!date || !dateMin || !dateMax || dateMax.getTime() === dateMin.getTime()) return '#f0b429';
+      const t = (date.getTime() - dateMin.getTime()) / (dateMax.getTime() - dateMin.getTime());
+      const hue = 4 + (142 - 4) * Math.max(0, Math.min(1, t));
+      return `hsl(${hue}, 62%, 43%)`;
+    }
+
+    function imageUrls(p) {
+      return Array.isArray(p.image_urls) ? p.image_urls.filter(Boolean) : [];
+    }
+
+    function setPopupImage(jobId, index) {
+      const feature = features.find(f => clean(f.properties.job_id) === clean(jobId));
+      if (!feature) return;
+      const urls = imageUrls(feature.properties);
+      const img = document.querySelector(`[data-job-image="${jobId}"]`);
+      const counter = document.querySelector(`[data-job-counter="${jobId}"]`);
+      if (!img || !urls.length) return;
+      const safeIndex = (index + urls.length) % urls.length;
+      img.src = urls[safeIndex];
+      img.dataset.index = String(safeIndex);
+      if (counter) counter.textContent = `${safeIndex + 1} / ${urls.length}`;
+    }
+
+    function carouselHtml(p) {
+      const urls = imageUrls(p);
+      if (!urls.length) return '<div class="empty">No photo extracted</div>';
+      return `
+        <div class="hero">
+          <button type="button" onclick="setPopupImage('${escapeAttr(p.job_id)}', Number(document.querySelector('[data-job-image=&quot;${escapeAttr(p.job_id)}&quot;]').dataset.index || 0) - 1)">‹</button>
+          <img data-job-image="${escapeAttr(p.job_id)}" data-index="0" src="${urls[0]}" alt="Job photo" onclick="openGallery('${escapeAttr(p.job_id)}', Number(this.dataset.index || 0))">
+          <button type="button" onclick="setPopupImage('${escapeAttr(p.job_id)}', Number(document.querySelector('[data-job-image=&quot;${escapeAttr(p.job_id)}&quot;]').dataset.index || 0) + 1)">›</button>
+        </div>
+        <div class="meta" data-job-counter="${escapeAttr(p.job_id)}">1 / ${urls.length}</div>`;
+    }
+
+    function allDataHtml(p) {
+      const rows = Object.keys(p).sort().map(key => {
+        const value = p[key];
+        if (Array.isArray(value)) return '';
+        return `<tr><th>${escapeHtml(key)}</th><td>${linkify(escapeHtml(value))}</td></tr>`;
+      }).join('');
+      return `<details><summary>View all extracted data</summary><div class="all-data"><table>${rows}</table></div></details>`;
+    }
+
+    function linkify(value) {
+      return clean(value).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
     }
 
     function popupHtml(p) {
-      const img = clean(p.image_1_url) ? `<img src="${clean(p.image_1_url)}" alt="Job photo">` : '<div class="empty">No photo extracted</div>';
       const comment = clean(p.recent_comment) ? `<p>${escapeHtml(p.recent_comment)}</p>` : '';
       return `
         <div class="popup">
           <h3>Job ${escapeHtml(p.job_id)}</h3>
           <div class="meta">${escapeHtml(p.asset_name)}<br>${escapeHtml(p.located_on)} ${escapeHtml(p.relative_location)}</div>
-          ${img}
+          ${carouselHtml(p)}
+          <div class="metrics">
+            <div class="metric"><strong>${escapeHtml(p.quantity_total)}</strong>Sq.m total</div>
+            <div class="metric"><strong>${escapeHtml(p.quantity_completed)}</strong>Completed</div>
+            <div class="metric"><strong>${escapeHtml(p.created_date)}</strong>Created</div>
+          </div>
           ${comment}
           <div>
             <a href="${clean(p.url)}" target="_blank" rel="noopener">Asset Vision</a>
             <a href="${clean(p.google_maps_url)}" target="_blank" rel="noopener">Google Maps</a>
             ${clean(p.image_gallery_url) ? `<a href="${clean(p.image_gallery_url)}" target="_blank" rel="noopener">All photos (${clean(p.image_count)})</a>` : ''}
           </div>
-          <div class="meta">Priority: ${escapeHtml(p.priority)} | Council: ${escapeHtml(p.council)} | Created: ${escapeHtml(p.created_date)}</div>
+          <div class="meta">Priority: ${escapeHtml(p.priority)} | Council: ${escapeHtml(p.council)}</div>
+          ${allDataHtml(p)}
         </div>`;
     }
 
@@ -154,43 +249,49 @@ WEBMAP_HTML = r"""<!doctype html>
       return clean(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
     }
 
+    function escapeAttr(value) {
+      return escapeHtml(value).replace(/`/g, '&#96;');
+    }
+
     function makeMarker(feature) {
       const p = feature.properties;
       const [lon, lat] = feature.geometry.coordinates;
       const marker = L.circleMarker([lat, lon], {
-        radius: Number(p.image_count || 0) > 0 ? 7 : 5,
+        radius: radiusFor(p),
         color: '#17212b',
-        weight: 1,
+        weight: 1.5,
         fillColor: colorFor(p),
-        fillOpacity: 0.88
+        fillOpacity: 0.82
       });
-      marker.bindPopup(popupHtml(p), { maxWidth: 340 });
+      marker.bindPopup(popupHtml(p), { maxWidth: 390 });
+      marker.on('click', () => {
+        if (window.matchMedia('(max-width: 820px)').matches) {
+          marker.closePopup();
+          openJobPanel(p);
+        }
+      });
       marker.feature = feature;
       return marker;
     }
 
-    function optionValues(field) {
-      return [...new Set(features.map(f => clean(f.properties[field])).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-    }
-
-    function populateSelect(select, values) {
-      for (const value of values) {
-        const option = document.createElement('option');
-        option.value = value;
-        option.textContent = value;
-        select.appendChild(option);
-      }
+    function radiusFor(p) {
+      const quantityBoost = Math.min(8, Math.sqrt(Number(p.quantity_total || 0)) / 3);
+      const zoom = map.getZoom() || 10;
+      const zoomBoost = zoom >= 16 ? 8 : zoom >= 14 ? 5 : zoom >= 12 ? 2 : 0;
+      return 12 + quantityBoost + zoomBoost;
     }
 
     function matches(feature) {
       const p = feature.properties;
       if (controls.gw.checked && !truthy(p['Can GW Access'])) return false;
-      if (controls.eofy.checked && !truthy(p['Before 2025 EOFY'])) return false;
+      const created = parseDate(p.created_date);
+      const eofy = new Date(2025, 5, 30);
+      if (controls.eofy.checked && (!created || created <= eofy)) return false;
       if (controls.images.checked && !(Number(p.image_count || 0) > 0)) return false;
-      if (controls.priority.value && clean(p.priority) !== controls.priority.value) return false;
-      if (controls.council.value && clean(p.council) !== controls.council.value) return false;
-      if (controls.assigned.value && clean(p.assigned_to) !== controls.assigned.value) return false;
-      if (controls.status.value && clean(p.job_status) !== controls.status.value) return false;
+      const from = fromInputDate(controls.dateFrom.value);
+      const to = fromInputDate(controls.dateTo.value);
+      if (from && (!created || created < from)) return false;
+      if (to && (!created || created > to)) return false;
 
       const q = controls.search.value.trim().toLowerCase();
       if (q) {
@@ -204,39 +305,91 @@ WEBMAP_HTML = r"""<!doctype html>
     }
 
     function applyFilters() {
-      cluster.clearLayers();
+      markerLayer.clearLayers();
       const visible = markers.filter(marker => matches(marker.feature));
-      cluster.addLayers(visible);
+      visible.forEach(marker => marker.setRadius(radiusFor(marker.feature.properties)));
+      visible.forEach(marker => markerLayer.addLayer(marker));
       document.getElementById('visibleCount').textContent = visible.length;
+    }
+
+    function zoomToVisible() {
+      const visible = markers.filter(marker => matches(marker.feature));
       if (visible.length) {
         const group = L.featureGroup(visible);
         map.fitBounds(group.getBounds().pad(0.08));
       }
     }
 
+    function openGallery(jobId, index) {
+      const feature = features.find(f => clean(f.properties.job_id) === clean(jobId));
+      if (!feature) return;
+      activeGallery = imageUrls(feature.properties);
+      activeGalleryIndex = index || 0;
+      renderModal();
+      document.getElementById('modal').classList.add('open');
+    }
+
+    function renderModal() {
+      if (!activeGallery.length) return;
+      activeGalleryIndex = (activeGalleryIndex + activeGallery.length) % activeGallery.length;
+      document.getElementById('modalImage').src = activeGallery[activeGalleryIndex];
+      document.getElementById('modalCaption').textContent = `${activeGalleryIndex + 1} / ${activeGallery.length}`;
+    }
+
+    function closeModal() {
+      document.getElementById('modal').classList.remove('open');
+    }
+
+    function openJobPanel(p) {
+      const panel = document.getElementById('jobPanel');
+      panel.innerHTML = `
+        <div class="panel-bar">
+          <strong>Job ${escapeHtml(p.job_id)}</strong>
+          <button type="button" onclick="closeJobPanel()">×</button>
+        </div>
+        ${popupHtml(p)}
+      `;
+      panel.classList.add('open');
+    }
+
+    function closeJobPanel() {
+      document.getElementById('jobPanel').classList.remove('open');
+    }
+
     fetch('data/jobs.geojson')
       .then(response => response.json())
       .then(data => {
         features = data.features;
+        const dates = features.map(f => parseDate(f.properties.created_date)).filter(Boolean).sort((a, b) => a - b);
+        dateMin = dates[0] || null;
+        dateMax = dates[dates.length - 1] || null;
+        controls.dateFrom.value = toInputDate(dateMin);
+        controls.dateTo.value = toInputDate(dateMax);
         markers = features.map(makeMarker);
         document.getElementById('totalCount').textContent = features.length;
-        populateSelect(controls.priority, optionValues('priority'));
-        populateSelect(controls.council, optionValues('council'));
-        populateSelect(controls.assigned, optionValues('assigned_to'));
-        populateSelect(controls.status, optionValues('job_status'));
         Object.values(controls).forEach(control => control.addEventListener('input', applyFilters));
+        document.getElementById('zoomVisible').addEventListener('click', zoomToVisible);
         document.getElementById('reset').addEventListener('click', () => {
           controls.search.value = '';
           controls.gw.checked = false;
           controls.eofy.checked = false;
           controls.images.checked = false;
-          controls.priority.value = '';
-          controls.council.value = '';
-          controls.assigned.value = '';
-          controls.status.value = '';
+          controls.dateFrom.value = toInputDate(dateMin);
+          controls.dateTo.value = toInputDate(dateMax);
           applyFilters();
         });
+        document.getElementById('modalPrev').addEventListener('click', () => { activeGalleryIndex -= 1; renderModal(); });
+        document.getElementById('modalNext').addEventListener('click', () => { activeGalleryIndex += 1; renderModal(); });
+        document.getElementById('closeModal').addEventListener('click', closeModal);
+        document.getElementById('modal').addEventListener('click', event => { if (event.target.id === 'modal') closeModal(); });
+        document.addEventListener('keydown', event => {
+          if (!document.getElementById('modal').classList.contains('open')) return;
+          if (event.key === 'Escape') closeModal();
+          if (event.key === 'ArrowLeft') { activeGalleryIndex -= 1; renderModal(); }
+          if (event.key === 'ArrowRight') { activeGalleryIndex += 1; renderModal(); }
+        });
         applyFilters();
+        zoomToVisible();
       });
   </script>
 </body>
@@ -272,6 +425,17 @@ def build_geojson(csv_path):
                 props["image_count"] = int(row.get("image_count") or 0)
             except ValueError:
                 props["image_count"] = 0
+            first_image = row.get("image_1_url") or ""
+            props["image_urls"] = []
+            if first_image and props["image_count"]:
+                prefix, _, suffix = first_image.rpartition("_01.")
+                if prefix and suffix:
+                    props["image_urls"] = [
+                        f"{prefix}_{index:02d}.{suffix}"
+                        for index in range(1, props["image_count"] + 1)
+                    ]
+                else:
+                    props["image_urls"] = [row.get(f"image_{index}_url") for index in range(1, 7) if row.get(f"image_{index}_url")]
             features.append({
                 "type": "Feature",
                 "geometry": {"type": "Point", "coordinates": [lon, lat]},
