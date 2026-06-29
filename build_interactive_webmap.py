@@ -67,11 +67,27 @@ WEBMAP_HTML = r"""<!doctype html>
     .panel-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
     .panel-bar button { width: 38px; height: 34px; padding: 0; font-size: 22px; }
     @media (max-width: 820px) {
-      #app { grid-template-columns: 1fr; grid-template-rows: 42vh 58vh; }
-      #sidebar { order: 2; border-right: 0; border-top: 1px solid #d9e2ec; }
+      #app { display: block; height: 100dvh; }
+      #map { height: 100dvh; }
+      #sidebar {
+        position: fixed;
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        z-index: 5000;
+        max-height: 72dvh;
+        border: 1px solid #d9e2ec;
+        border-radius: 10px;
+        box-shadow: 0 14px 42px rgba(15, 23, 42, .28);
+        padding: 12px;
+      }
+      #sidebar.collapsed { max-height: 126px; overflow: hidden; }
       #toggleFilters { display: inline-block; }
       #sidebar.collapsed #filterBody { display: none; }
-      #map { order: 1; }
+      #sidebar h1 { font-size: 18px; margin: 0; }
+      .stat-grid { margin: 10px 0 0; }
+      .stat { padding: 8px; }
+      .stat strong { font-size: 18px; }
       #modal { grid-template-columns: 44px 1fr 44px; padding: 12px; }
       .leaflet-popup { display: none; }
       .popup { width: auto; max-width: none; }
