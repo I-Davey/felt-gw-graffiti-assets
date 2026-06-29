@@ -16,6 +16,7 @@ WEBMAP_HTML = r"""<!doctype html>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>GW Graffiti Jobs Map</title>
   <meta http-equiv="Cache-Control" content="no-store">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%232f855a'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <style>
     html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; color: #17212b; }
@@ -146,7 +147,7 @@ WEBMAP_HTML = r"""<!doctype html>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    const map = L.map('map', { preferCanvas: true });
+    const map = L.map('map', { preferCanvas: true }).setView([-37.8136, 144.9631], 10);
     const light = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
       maxZoom: 20,
       attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
@@ -371,7 +372,9 @@ WEBMAP_HTML = r"""<!doctype html>
       const marker = markers.find(item => clean(item.feature.properties.job_id) === clean(jobId));
       if (!marker) return;
       const [lon, lat] = marker.feature.geometry.coordinates;
-      map.setView([lat, lon], Math.max(map.getZoom(), 17));
+      const currentZoom = map.getZoom();
+      const targetZoom = Number.isFinite(currentZoom) ? Math.max(currentZoom, 17) : 17;
+      map.setView([lat, lon], targetZoom);
       markerLayer.addLayer(marker);
       if (window.matchMedia('(max-width: 820px)').matches) {
         openJobPanel(marker.feature.properties);
