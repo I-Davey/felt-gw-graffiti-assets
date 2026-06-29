@@ -23,6 +23,7 @@ WEBMAP_HTML = r"""<!doctype html>
     #app { display: grid; grid-template-columns: 340px 1fr; height: 100%; }
     #sidebar { overflow: auto; border-right: 1px solid #d9e2ec; background: #f8fafc; padding: 16px; }
     .sidebar-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .sidebar-head { position: sticky; top: 0; z-index: 2; background: #f8fafc; padding-bottom: 8px; }
     #toggleFilters { display: none; }
     #map { height: 100%; width: 100%; }
     h1 { font-size: 20px; margin: 0 0 12px; }
@@ -65,7 +66,7 @@ WEBMAP_HTML = r"""<!doctype html>
     #modalCaption { position: fixed; left: 24px; bottom: 18px; color: white; font-size: 14px; }
     #jobPanel { display: none; position: fixed; left: 0; right: 0; bottom: 0; max-height: 72vh; overflow: auto; background: white; border-top: 1px solid #bcccdc; box-shadow: 0 -14px 40px rgba(15,23,42,.28); z-index: 9999; padding: 14px; }
     #jobPanel.open { display: block; }
-    .panel-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+    .panel-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; position: sticky; top: 0; z-index: 2; background: white; padding-bottom: 8px; }
     .panel-bar button { width: 38px; height: 34px; padding: 0; font-size: 22px; }
     @media (max-width: 820px) {
       #app { display: block; height: 100dvh; }
@@ -255,7 +256,7 @@ WEBMAP_HTML = r"""<!doctype html>
       return `
         <div class="popup">
           <h3>Job ${escapeHtml(p.job_id)}</h3>
-          <div class="meta">${escapeHtml(p.asset_name)}<br>${escapeHtml(p.located_on)}</div>
+          <div class="meta">${escapeHtml(displayLocation(p))}</div>
           ${carouselHtml(p)}
           <div class="metrics">
             <div class="metric"><strong>${escapeHtml(p.quantity_total)}</strong>Sq.m total</div>
@@ -276,6 +277,14 @@ WEBMAP_HTML = r"""<!doctype html>
 
     function escapeHtml(value) {
       return clean(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    }
+
+    function firstLine(value) {
+      return clean(value).split(/<br\s*\/?>|\n/i)[0].trim();
+    }
+
+    function displayLocation(p) {
+      return firstLine(p.asset_name || p.located_on);
     }
 
     function escapeAttr(value) {
