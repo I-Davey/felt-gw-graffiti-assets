@@ -21,6 +21,8 @@ WEBMAP_HTML = r"""<!doctype html>
     html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; color: #17212b; }
     #app { display: grid; grid-template-columns: 340px 1fr; height: 100%; }
     #sidebar { overflow: auto; border-right: 1px solid #d9e2ec; background: #f8fafc; padding: 16px; }
+    .sidebar-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    #toggleFilters { display: none; }
     #map { height: 100%; width: 100%; }
     h1 { font-size: 20px; margin: 0 0 12px; }
     h2 { font-size: 13px; margin: 20px 0 8px; text-transform: uppercase; letter-spacing: .04em; color: #52606d; }
@@ -43,6 +45,7 @@ WEBMAP_HTML = r"""<!doctype html>
     .popup .meta { font-size: 13px; color: #52606d; margin-bottom: 8px; }
     .popup p { margin: 8px 0; max-height: 110px; overflow: auto; }
     .popup a { display: inline-block; margin: 4px 8px 0 0; color: #0b63ce; }
+    .share { font-weight: bold; }
     .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 8px 0; }
     .metric { background: #f8fafc; border: 1px solid #d9e2ec; border-radius: 6px; padding: 6px; font-size: 12px; }
     .metric strong { display: block; font-size: 15px; color: #17212b; }
@@ -66,6 +69,8 @@ WEBMAP_HTML = r"""<!doctype html>
     @media (max-width: 820px) {
       #app { grid-template-columns: 1fr; grid-template-rows: 42vh 58vh; }
       #sidebar { order: 2; border-right: 0; border-top: 1px solid #d9e2ec; }
+      #toggleFilters { display: inline-block; }
+      #sidebar.collapsed #filterBody { display: none; }
       #map { order: 1; }
       #modal { grid-template-columns: 44px 1fr 44px; padding: 12px; }
       .leaflet-popup { display: none; }
@@ -77,11 +82,15 @@ WEBMAP_HTML = r"""<!doctype html>
 <body>
   <div id="app">
     <aside id="sidebar">
-      <h1>GW Graffiti Jobs</h1>
+      <div class="sidebar-head">
+        <h1>GW Graffiti Jobs</h1>
+        <button id="toggleFilters" type="button">Filters</button>
+      </div>
       <div class="stat-grid">
         <div class="stat"><strong id="visibleCount">0</strong><span>visible jobs</span></div>
         <div class="stat"><strong id="totalCount">0</strong><span>total jobs</span></div>
       </div>
+      <div id="filterBody">
 
       <h2>Search</h2>
       <input id="search" type="search" placeholder="Job ID, road, comment">
@@ -105,6 +114,7 @@ WEBMAP_HTML = r"""<!doctype html>
       <h2>Actions</h2>
       <button id="reset">Reset filters</button>
       <button id="zoomVisible">Zoom to visible</button>
+      </div>
     </aside>
     <main id="map"></main>
   </div>
@@ -228,7 +238,7 @@ WEBMAP_HTML = r"""<!doctype html>
       return `
         <div class="popup">
           <h3>Job ${escapeHtml(p.job_id)}</h3>
-          <div class="meta">${escapeHtml(p.asset_name)}<br>${escapeHtml(p.located_on)} ${escapeHtml(p.relative_location)}</div>
+          <div class="meta">${escapeHtml(p.asset_name)}<br>${escapeHtml(p.located_on)}</div>
           ${carouselHtml(p)}
           <div class="metrics">
             <div class="metric"><strong>${escapeHtml(p.quantity_total)}</strong>Sq.m total</div>
@@ -240,6 +250,7 @@ WEBMAP_HTML = r"""<!doctype html>
             <a href="${clean(p.url)}" target="_blank" rel="noopener">Asset Vision</a>
             <a href="${clean(p.google_maps_url)}" target="_blank" rel="noopener">Google Maps</a>
             ${clean(p.image_gallery_url) ? `<a href="${clean(p.image_gallery_url)}" target="_blank" rel="noopener">All photos (${clean(p.image_count)})</a>` : ''}
+            <a class="share" href="#job=${encodeURIComponent(clean(p.job_id))}" onclick="copyShareLink('${escapeAttr(p.job_id)}'); return false;">Share job</a>
           </div>
           <div class="meta">Priority: ${escapeHtml(p.priority)} | Council: ${escapeHtml(p.council)}</div>
           ${allDataHtml(p)}
@@ -266,6 +277,7 @@ WEBMAP_HTML = r"""<!doctype html>
       });
       marker.bindPopup(popupHtml(p), { maxWidth: 390 });
       marker.on('click', () => {
+        setJobHash(p.job_id);
         if (window.matchMedia('(max-width: 820px)').matches) {
           marker.closePopup();
           openJobPanel(p);
@@ -276,10 +288,10 @@ WEBMAP_HTML = r"""<!doctype html>
     }
 
     function radiusFor(p) {
-      const quantityBoost = Math.min(8, Math.sqrt(Number(p.quantity_total || 0)) / 3);
       const zoom = map.getZoom() || 10;
-      const zoomBoost = zoom >= 16 ? 8 : zoom >= 14 ? 5 : zoom >= 12 ? 2 : 0;
-      return 12 + quantityBoost + zoomBoost;
+      const base = zoom <= 8 ? 3.5 : zoom <= 10 ? 5 : zoom <= 12 ? 7 : zoom <= 14 ? 9 : zoom <= 16 ? 12 : 15;
+      const quantityBoost = Math.min(5, Math.sqrt(Number(p.quantity_total || 0)) / 5);
+      return base + quantityBoost;
     }
 
     function matches(feature) {
@@ -318,6 +330,37 @@ WEBMAP_HTML = r"""<!doctype html>
       if (visible.length) {
         const group = L.featureGroup(visible);
         map.fitBounds(group.getBounds().pad(0.08));
+      }
+    }
+
+    function setJobHash(jobId) {
+      const hash = `job=${encodeURIComponent(clean(jobId))}`;
+      if (location.hash.slice(1) !== hash) history.replaceState(null, '', `#${hash}`);
+    }
+
+    function jobIdFromHash() {
+      const hash = location.hash.replace(/^#/, '');
+      const params = new URLSearchParams(hash);
+      return params.get('job');
+    }
+
+    function copyShareLink(jobId) {
+      const url = `${location.origin}${location.pathname}#job=${encodeURIComponent(clean(jobId))}`;
+      history.replaceState(null, '', `#job=${encodeURIComponent(clean(jobId))}`);
+      if (navigator.clipboard) navigator.clipboard.writeText(url).catch(() => {});
+    }
+
+    function openJobById(jobId) {
+      if (!jobId) return;
+      const marker = markers.find(item => clean(item.feature.properties.job_id) === clean(jobId));
+      if (!marker) return;
+      const [lon, lat] = marker.feature.geometry.coordinates;
+      map.setView([lat, lon], Math.max(map.getZoom(), 17));
+      markerLayer.addLayer(marker);
+      if (window.matchMedia('(max-width: 820px)').matches) {
+        openJobPanel(marker.feature.properties);
+      } else {
+        marker.openPopup();
       }
     }
 
@@ -369,6 +412,9 @@ WEBMAP_HTML = r"""<!doctype html>
         markers = features.map(makeMarker);
         document.getElementById('totalCount').textContent = features.length;
         Object.values(controls).forEach(control => control.addEventListener('input', applyFilters));
+        document.getElementById('toggleFilters').addEventListener('click', () => {
+          document.getElementById('sidebar').classList.toggle('collapsed');
+        });
         document.getElementById('zoomVisible').addEventListener('click', zoomToVisible);
         document.getElementById('reset').addEventListener('click', () => {
           controls.search.value = '';
@@ -389,8 +435,15 @@ WEBMAP_HTML = r"""<!doctype html>
           if (event.key === 'ArrowLeft') { activeGalleryIndex -= 1; renderModal(); }
           if (event.key === 'ArrowRight') { activeGalleryIndex += 1; renderModal(); }
         });
+        map.on('zoomend', applyFilters);
+        window.addEventListener('hashchange', () => openJobById(jobIdFromHash()));
+        if (window.matchMedia('(max-width: 820px)').matches) {
+          document.getElementById('sidebar').classList.add('collapsed');
+        }
         applyFilters();
-        zoomToVisible();
+        const requestedJob = jobIdFromHash();
+        if (requestedJob) openJobById(requestedJob);
+        else zoomToVisible();
       });
   </script>
 </body>
