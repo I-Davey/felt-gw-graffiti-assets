@@ -15,6 +15,7 @@ WEBMAP_HTML = r"""<!doctype html>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>GW Graffiti Jobs Map</title>
+  <meta http-equiv="Cache-Control" content="no-store">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <style>
     html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; color: #17212b; }
@@ -356,7 +357,7 @@ WEBMAP_HTML = r"""<!doctype html>
       document.getElementById('jobPanel').classList.remove('open');
     }
 
-    fetch('data/jobs.geojson')
+    fetch('data/jobs.geojson?v=20260629-photos', { cache: 'no-store' })
       .then(response => response.json())
       .then(data => {
         features = data.features;
